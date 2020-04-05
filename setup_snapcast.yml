@@ -1,0 +1,90 @@
+---
+- hosts: snapclient
+  tasks:
+  - name: Set hostname
+    become: yes
+    hostname:
+      name: pi1
+
+- hosts: snapserver
+  tasks:
+  - name: Set hostname
+    become: yes
+    hostname:
+      name: pi4
+
+- hosts: all
+  tasks:
+  - name: Get latest snapcast
+    uri:
+      url: https://api.github.com/repos/badaix/snapcast/releases/latest
+      return_content: true
+    register: json_reponse
+  - name: Download snapclient
+    get_url:
+      url: "{{ json_reponse.json.assets.1.browser_download_url }}"
+      dest: /tmp/snapclient-latest.tar.gz
+  - name: ensure snapclient is updated
+    become: yes
+    apt:
+      deb: /tmp/snapclient-latest.tar.gz
+
+- hosts: server
+  tasks:
+  - name: Get latest snapcast
+    uri:
+      url: https://api.github.com/repos/badaix/snapcast/releases/latest
+      return_content: true
+    register: json_reponse
+  - name: Download snapserver
+    get_url:
+      url: "{{ json_reponse.json.assets.3.browser_download_url }}"
+      dest: /tmp/snapserver-latest.tar.gz
+  - name: ensure snapserver is updated
+    become: yes
+    apt:
+      deb: /tmp/snapserver-latest.tar.gz
+  - name: Prepare raspotify installation
+    become: yes
+    apt:
+      pkg:
+      - curl
+      - apt-transport-https
+  - name: Add raspotify repository signing key
+    become: yes
+    apt_key:
+      url: https://dtcooper.github.io/raspotify/key.asc
+      state: present
+  - name: Enable raspotify repository
+    become: yes
+    apt_repository:
+      repo: deb https://dtcooper.github.io/raspotify raspotify main
+      state: present
+  - name: Install raspotify
+    become: yes
+    apt:
+      update_cache: yes
+      pkg:
+      - raspotify
+  - name: Configure raspotify
+    become: yes
+    copy:
+      content: 'BACKEND_ARGS="--backend pipe --device /tmp/snapfifo"'
+      dest: "/etc/default/raspotify"
+  - name: Restart raspotify
+    become: yes
+    service:
+      name: raspotify
+      state: restarted
+
+  - name: Configure snapserver
+    become: yes
+    copy:
+      content: "stream = pipe:///tmp/snapfifo?name=Spotify&mode=read"
+      dest: "/etc/snapserver.conf"
+  - name: Restart snapserver
+    become: yes
+    service:
+      name: snapserver
+      state: restarted
+
