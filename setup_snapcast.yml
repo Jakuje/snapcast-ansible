@@ -76,6 +76,7 @@
     service:
       name: raspotify
       state: restarted
+      enabled: yes
 
   - name: Configure snapserver
     become: yes
