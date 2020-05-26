@@ -20,9 +20,9 @@
     hostname:
       name: pi4s
 
-- hosts: all
+- hosts: clients
   tasks:
-  - name: Get latest snapcast
+  - name: Get latest snapcast release
     uri:
       url: https://api.github.com/repos/badaix/snapcast/releases/latest
       return_content: true
@@ -38,7 +38,7 @@
 
 - hosts: server
   tasks:
-  - name: Get latest snapcast
+  - name: Get latest snapcast release
     uri:
       url: https://api.github.com/repos/badaix/snapcast/releases/latest
       return_content: true
@@ -67,6 +67,7 @@
     apt_repository:
       repo: deb https://dtcooper.github.io/raspotify raspotify main
       state: present
+
   - name: Install raspotify
     become: yes
     apt:
@@ -95,4 +96,5 @@
     service:
       name: snapserver
       state: restarted
+      enabled: yes
 
