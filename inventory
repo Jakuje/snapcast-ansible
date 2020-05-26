@@ -1,18 +1,20 @@
 all:
   hosts:
-    snapserver:
-      ansible_host: 192.168.1.215
-    snapclient:
+    pi1:
       ansible_host: 192.168.1.134
+    pi4:
+      ansible_host: 192.168.1.215
+    pi4s:
+      ansible_host: 192.168.1.202
   vars:
     ansible_user: pi
     ansible_password: raspberry
   children:
     server:
       hosts:
-        snapserver:
+        pi4s:
     clients:
       hosts:
-        snapserver:
-        snapclient:
+        pi4:
+        pi4s:
     

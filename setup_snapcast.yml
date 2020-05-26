@@ -1,17 +1,24 @@
 ---
-- hosts: snapclient
-  tasks:
-  - name: Set hostname
-    become: yes
-    hostname:
-      name: pi1
+#- hosts: pi1
+#  tasks:
+#  - name: Set hostname
+#    become: yes
+#    hostname:
+#      name: pi1
 
-- hosts: snapserver
+- hosts: pi4
   tasks:
   - name: Set hostname
     become: yes
     hostname:
       name: pi4
+
+- hosts: pi4s
+  tasks:
+  - name: Set hostname
+    become: yes
+    hostname:
+      name: pi4s
 
 - hosts: all
   tasks:
