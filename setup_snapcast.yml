@@ -20,22 +20,6 @@
     hostname:
       name: pi4s
 
-- hosts: clients
-  tasks:
-  - name: Get latest snapcast release
-    uri:
-      url: https://api.github.com/repos/badaix/snapcast/releases/latest
-      return_content: true
-    register: json_reponse
-  - name: Download snapclient
-    get_url:
-      url: "{{ json_reponse.json.assets.1.browser_download_url }}"
-      dest: /tmp/snapclient-latest.tar.gz
-  - name: ensure snapclient is updated
-    become: yes
-    apt:
-      deb: /tmp/snapclient-latest.tar.gz
-
 - hosts: server
   tasks:
   - name: Get latest snapcast release
@@ -97,4 +81,41 @@
       name: snapserver
       state: restarted
       enabled: yes
+
+- hosts: clients
+  tasks:
+  - name: Get latest snapcast release
+    uri:
+      url: https://api.github.com/repos/badaix/snapcast/releases/latest
+      return_content: true
+    register: json_reponse
+  - name: Download snapclient
+    get_url:
+      url: "{{ json_reponse.json.assets.1.browser_download_url }}"
+      dest: /tmp/snapclient-latest.tar.gz
+  - name: ensure snapclient is updated
+    become: yes
+    apt:
+      deb: /tmp/snapclient-latest.tar.gz
+  - name: Restart snapclient
+    become: yes
+    service:
+      name: snapclient
+      state: restarted
+      enabled: yes
+
+- hosts: clients:!server
+  tasks:
+  - name: Make sure raspotify is not running
+    become: yes
+    service:
+      name: raspotify
+      state: stopped
+      enabled: no
+  - name: Make sure snapserver is not running
+    become: yes
+    service:
+      name: snapserver
+      state: stopped
+      enabled: no
 
