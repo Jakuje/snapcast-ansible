@@ -27,25 +27,30 @@
       url: https://api.github.com/repos/badaix/snapcast/releases/latest
       return_content: true
     register: json_reponse
+    
   - name: Download snapserver
     get_url:
       url: "{{ json_reponse.json.assets.4.browser_download_url }}"
       dest: /tmp/snapserver-latest.tar.gz
+      
   - name: ensure snapserver is updated
     become: yes
     apt:
       deb: /tmp/snapserver-latest.tar.gz
+      
   - name: Prepare raspotify installation
     become: yes
     apt:
       pkg:
       - curl
       - apt-transport-https
+      
   - name: Add raspotify repository signing key
     become: yes
     apt_key:
       url: https://dtcooper.github.io/raspotify/key.asc
       state: present
+
   - name: Enable raspotify repository
     become: yes
     apt_repository:
@@ -59,45 +64,20 @@
       pkg:
       - raspotify
 
-  - name: Configure raspotify
-    become: yes
-    blockinfile:
-      path: "/etc/raspotify/conf"
-      block: |
-        LIBRESPOT_BACKEND="pipe"
-        LIBRESPOT_DEVICE="/tmp/snapfifo"
-
-  - name: Configure raspotify service to share /tmp with snapserver
-    become: yes
-    blockinfile:
-      path: "/etc/systemd/system/raspotify.service.d/ShareTmp.conf"
-      block: |
-        [Unit]
-        JoinsNamespaceOf=snapserver.service
-
-  - name: Restart raspotify
+  - name: Disable raspotify
     become: yes
     service:
       name: raspotify
-      state: restarted
-      enabled: yes
-      daemon_reload: yes
+      state: stopped
+      enabled: false
 
   - name: Configure snapserver
     become: yes
     copy:
-      content: "stream = pipe:///tmp/snapfifo?name=Spotify&mode=read"
+      content: |
+        [stream]
+        source = spotify:///usr/bin/librespot?name=Spotify&devicename=RPi4s
       dest: "/etc/snapserver.conf"
-
-  - name: Configure snapserver service to share /tmp with raspotify
-    become: yes
-    blockinfile:
-      path: "/etc/systemd/system/snapserver.service.d/ShareTmp.conf"
-      block: |
-        [Service]
-        PrivateTmp=true
-        [Unit]
-        JoinsNamespaceOf=raspotify.service
 
   - name: Restart snapserver
     become: yes
@@ -114,14 +94,17 @@
       url: https://api.github.com/repos/badaix/snapcast/releases/latest
       return_content: true
     register: json_reponse
+    
   - name: Download snapclient
     get_url:
       url: "{{ json_reponse.json.assets.1.browser_download_url }}"
       dest: /tmp/snapclient-latest.tar.gz
+      
   - name: ensure snapclient is updated
     become: yes
     apt:
       deb: /tmp/snapclient-latest.tar.gz
+      
   - name: Restart snapclient
     become: yes
     service:
@@ -137,10 +120,10 @@
       name: raspotify
       state: stopped
       enabled: no
+      
   - name: Make sure snapserver is not running
     become: yes
     service:
       name: snapserver
       state: stopped
       enabled: no
-
