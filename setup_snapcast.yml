@@ -26,25 +26,31 @@
     uri:
       url: https://api.github.com/repos/badaix/snapcast/releases/latest
       return_content: true
-    register: json_reponse
-    
+    register: json_response
+
+  - name: Find the link to download server package
+    set_fact:
+      download_url: "{{ item.browser_download_url }}"
+    when: item.name | regex_search('snapserver.*armhf.deb')
+    loop: "{{ json_response.json.assets }}"
+
   - name: Download snapserver
     get_url:
-      url: "{{ json_reponse.json.assets.4.browser_download_url }}"
+      url: "{{ download_url }}"
       dest: /tmp/snapserver-latest.tar.gz
-      
+
   - name: ensure snapserver is updated
     become: yes
     apt:
       deb: /tmp/snapserver-latest.tar.gz
-      
+
   - name: Prepare raspotify installation
     become: yes
     apt:
       pkg:
       - curl
       - apt-transport-https
-      
+
   - name: Add raspotify repository signing key
     become: yes
     apt_key:
@@ -93,18 +99,24 @@
     uri:
       url: https://api.github.com/repos/badaix/snapcast/releases/latest
       return_content: true
-    register: json_reponse
-    
+    register: json_response
+
+  - name: Find the link to download client package
+    set_fact:
+      download_url: "{{ item.browser_download_url }}"
+    when: item.name | regex_search('snapclient.*armhf.deb')
+    loop: "{{ json_response.json.assets }}"
+
   - name: Download snapclient
     get_url:
-      url: "{{ json_reponse.json.assets.1.browser_download_url }}"
+      url: "{{ download_url }}"
       dest: /tmp/snapclient-latest.tar.gz
-      
+
   - name: ensure snapclient is updated
     become: yes
     apt:
       deb: /tmp/snapclient-latest.tar.gz
-      
+
   - name: Restart snapclient
     become: yes
     service:
@@ -120,7 +132,7 @@
       name: raspotify
       state: stopped
       enabled: no
-      
+
   - name: Make sure snapserver is not running
     become: yes
     service:
