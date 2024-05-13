@@ -20,6 +20,17 @@
     hostname:
       name: pi4s
 
+- hosts: all
+  tasks:
+  - name: Remove needless packages
+    become: yes
+    package:
+      state: absent
+      name:
+        - chromium-browser
+        - firefox
+        - vlc
+
 - hosts: server
   tasks:
   - name: Get latest snapcast release
