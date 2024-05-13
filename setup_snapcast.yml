@@ -42,18 +42,18 @@
   - name: Find the link to download server package
     set_fact:
       download_url: "{{ item.browser_download_url }}"
-    when: item.name | regex_search('snapserver.*armhf.deb')
+    when: item.name | regex_search('snapserver.*arm64-bookworm.deb')
     loop: "{{ json_response.json.assets }}"
 
   - name: Download snapserver
     get_url:
       url: "{{ download_url }}"
-      dest: /tmp/snapserver-latest.tar.gz
+      dest: /tmp/snapserver-latest.deb
 
   - name: ensure snapserver is updated
     become: yes
     apt:
-      deb: /tmp/snapserver-latest.tar.gz
+      deb: /tmp/snapserver-latest.deb
 
   - name: Prepare raspotify installation
     become: yes
@@ -115,18 +115,18 @@
   - name: Find the link to download client package
     set_fact:
       download_url: "{{ item.browser_download_url }}"
-    when: item.name | regex_search('snapclient.*armhf.deb')
+    when: item.name | regex_search('snapclient.*arm64-bookworm.deb')
     loop: "{{ json_response.json.assets }}"
 
   - name: Download snapclient
     get_url:
       url: "{{ download_url }}"
-      dest: /tmp/snapclient-latest.tar.gz
+      dest: /tmp/snapclient-latest.deb
 
   - name: ensure snapclient is updated
     become: yes
     apt:
-      deb: /tmp/snapclient-latest.tar.gz
+      deb: /tmp/snapclient-latest.deb
 
   - name: Restart snapclient
     become: yes
