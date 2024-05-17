@@ -30,6 +30,7 @@
         - chromium-browser
         - firefox
         - vlc
+        - pipewire
 
 - hosts: server
   tasks:
@@ -130,25 +131,38 @@
     apt:
       deb: /tmp/snapclient-latest.deb
 
+  - name: ensure the snapclient user is in pulse-access group
+    become: yes
+    user:
+      name: snapclient
+      groups: pulse-access
+      append: yes
+
+  - name: Enable system-wide pulse daemon
+    become: yes
+    copy:
+      src: pulseaudio.service
+      dest: "/etc/systemd/system/pulseaudio.service"
+
+  - name: Disable per-user pulse daemon and socket
+    become: yes
+    service:
+      name: pulseaudio
+      state: stopped
+      enabled: no
+      arguments: --global
+
+  - name: Start system-wide pulse daemon
+    become: yes
+    service:
+      name: pulseaudio
+      state: restarted
+      enabled: no
+      daemon_reload: yes
+
   - name: Restart snapclient
     become: yes
     service:
       name: snapclient
       state: restarted
       enabled: yes
-
-- hosts: clients:!server
-  tasks:
-  - name: Make sure raspotify is not running
-    become: yes
-    service:
-      name: raspotify
-      state: stopped
-      enabled: no
-
-  - name: Make sure snapserver is not running
-    become: yes
-    service:
-      name: snapserver
-      state: stopped
-      enabled: no
