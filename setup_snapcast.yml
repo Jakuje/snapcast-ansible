@@ -64,14 +64,16 @@
 
   - name: Add raspotify repository signing key
     become: yes
-    apt_key:
+    get_url:
       url: https://dtcooper.github.io/raspotify/key.asc
-      state: present
+      dest: /usr/share/keyrings/raspotify_key.asc
+      mode: '0644'
+      owner: 'root'
 
   - name: Enable raspotify repository
     become: yes
     apt_repository:
-      repo: deb https://dtcooper.github.io/raspotify raspotify main
+      repo: deb [signed-by=/usr/share/keyrings/raspotify_key.asc] https://dtcooper.github.io/raspotify raspotify main
       state: present
 
   - name: Install raspotify
