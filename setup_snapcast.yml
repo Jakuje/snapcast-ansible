@@ -157,7 +157,7 @@
     service:
       name: pulseaudio
       state: restarted
-      enabled: no
+      enabled: yes
       daemon_reload: yes
 
   - name: Restart snapclient
