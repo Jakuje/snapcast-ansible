@@ -43,7 +43,7 @@
   - name: Find the link to download server package
     set_fact:
       download_url: "{{ item.browser_download_url }}"
-    when: item.name | regex_search('snapserver.*arm64-bookworm.deb')
+    when: item.name | regex_search('snapserver.*arm64_bookworm.deb')
     loop: "{{ json_response.json.assets }}"
 
   - name: Download snapserver
@@ -118,7 +118,7 @@
   - name: Find the link to download client package
     set_fact:
       download_url: "{{ item.browser_download_url }}"
-    when: item.name | regex_search('snapclient.*arm64-bookworm.deb')
+    when: item.name | regex_search('snapclient.*arm64_bookworm.deb')
     loop: "{{ json_response.json.assets }}"
 
   - name: Download snapclient
