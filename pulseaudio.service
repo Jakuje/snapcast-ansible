@@ -1,0 +1,10 @@
+[Unit]
+Description=PulseAudio system server
+
+[Service]
+Type=notify
+ExecStart=pulseaudio --daemonize=no --system --realtime --log-target=journal --disallow-exit=true --disallow-module-loading
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
