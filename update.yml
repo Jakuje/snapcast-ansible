@@ -1,0 +1,14 @@
+---
+- hosts: all
+  tasks:
+  - name: Remove needless packages
+    become: yes
+    apt:
+      name: xserver-common xwayland zenity
+      state: absent
+
+  - name: Update
+    become: yes
+    apt:
+      upgrade: yes
+      update_cache: yes
