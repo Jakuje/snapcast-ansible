@@ -1,0 +1,16 @@
+[Unit]
+Description=Bridge PipeWire soloist_sink to Snapserver FIFO
+After=snapserver.service soloist.service
+Requires=snapserver.service
+
+[Service]
+Type=simple
+User=snapserver
+Group=snapserver
+Environment="XDG_RUNTIME_DIR=/run/user/{{ snapserver_uid }}"
+ExecStart=/bin/sh -c 'exec /usr/bin/pw-record --target soloist_sink -P stream.capture.sink=true --rate 48000 --channels 2 --format s16 - > /run/snapserver/spotify_fifo'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

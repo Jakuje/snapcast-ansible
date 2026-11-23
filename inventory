@@ -3,10 +3,11 @@ all:
     pi4:
       ansible_host: 192.168.1.201
     pi4s:
-      ansible_host: 192.168.1.213
+      ansible_host: 192.168.1.214
   vars:
     ansible_user: jakuje
-#    ansible_ssh_private_key_file: pi_key
+    ansible_ssh_private_key_file: pi_key
+    soloist_api_key: XXXX
   children:
     server:
       hosts:

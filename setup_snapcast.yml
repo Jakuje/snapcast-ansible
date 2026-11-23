@@ -1,168 +1,312 @@
----
-#- hosts: pi1
-#  tasks:
-#  - name: Set hostname
-#    become: yes
-#    hostname:
-#      name: pi1
-
 - hosts: pi4
   tasks:
-  - name: Set hostname
-    become: yes
-    hostname:
-      name: pi4
+    - name: Set hostname
+      become: yes
+      hostname:
+        name: pi4
 
 - hosts: pi4s
   tasks:
-  - name: Set hostname
-    become: yes
-    hostname:
-      name: pi4s
+    - name: Set hostname
+      become: yes
+      hostname:
+        name: pi4s
 
 - hosts: all
   tasks:
-  - name: Remove needless packages
-    become: yes
-    package:
-      state: absent
-      name:
-        - chromium-browser
-        - firefox
-        - vlc
-        - pipewire
+    - name: Remove needless packages
+      become: yes
+      package:
+        state: absent
+        name:
+          - chromium-browser
+          - firefox
+          - vlc
+          - pulseaudio
+          - raspotify
 
 - hosts: server
+  vars:
+    soloist_device_name: "RPi4s"
+    snapserver_buffer: 200
+  handlers:
+    - name: Restart snapserver
+      become: yes
+      service:
+        name: snapserver
+        state: restarted
+        daemon_reload: true
+
+    - name: Restart soloist
+      become: yes
+      service:
+        name: soloist
+        state: restarted
+        daemon_reload: true
+
+    - name: Restart soloist-pipe
+      become: yes
+      service:
+        name: soloist-pipe
+        state: restarted
+        daemon_reload: true
+
   tasks:
-  - name: Get latest snapcast release
-    uri:
-      url: https://api.github.com/repos/badaix/snapcast/releases/latest
-      return_content: true
-    register: json_response
+    - name: Install dependencies
+      become: yes
+      apt:
+        pkg:
+        - curl
+        - apt-transport-https
+        - avahi-daemon
+        - pipewire
+        - pipewire-bin
+        - wireplumber
+        - dbus-user-session
+        - tar
 
-  - name: Find the link to download server package
-    set_fact:
-      download_url: "{{ item.browser_download_url }}"
-    when: item.name | regex_search('snapserver.*arm64_bookworm.deb')
-    loop: "{{ json_response.json.assets }}"
+    - name: Download latest Spotify Soloist ARM64 archive
+      get_url:
+        url: https://soloist-builds.spotifycdn.com/soloist_release_arm64.tar.gz
+        dest: /tmp/soloist_release_arm64.tar.gz
+        mode: '0644'
 
-  - name: Download snapserver
-    get_url:
-      url: "{{ download_url }}"
-      dest: /tmp/snapserver-latest.deb
+    - name: Extract Spotify Soloist binary to /usr/local/bin
+      become: yes
+      unarchive:
+        src: /tmp/soloist_release_arm64.tar.gz
+        dest: /usr/local/bin
+        remote_src: true
+        include:
+          - soloist
+        owner: root
+        group: root
+        mode: '0755'
 
-  - name: ensure snapserver is updated
-    become: yes
-    apt:
-      deb: /tmp/snapserver-latest.deb
+    - name: Install monthly auto-updater to prevent 90-day Soloist binary expiration
+      become: yes
+      copy:
+        content: |
+          #!/bin/sh
+          set -e
+          curl -fsSL https://soloist-builds.spotifycdn.com/soloist_release_arm64.tar.gz -o /tmp/soloist_release_arm64.tar.gz
+          tar -xzf /tmp/soloist_release_arm64.tar.gz -C /usr/local/bin soloist
+          chmod 0755 /usr/local/bin/soloist
+          rm -f /tmp/soloist_release_arm64.tar.gz
+          systemctl restart soloist.service
+        dest: /etc/cron.monthly/update-soloist
+        owner: root
+        group: root
+        mode: '0755'
 
-  - name: Prepare raspotify installation
-    become: yes
-    apt:
-      pkg:
-      - curl
-      - apt-transport-https
+    - name: Get latest snapcast release
+      uri:
+        url: https://api.github.com/repos/badaix/snapcast/releases/latest
+        return_content: true
+      register: json_response
 
-  - name: Add raspotify repository signing key
-    become: yes
-    get_url:
-      url: https://dtcooper.github.io/raspotify/key.asc
-      dest: /usr/share/keyrings/raspotify_key.asc
-      mode: '0644'
-      owner: 'root'
+    - name: Find the link to download server package
+      set_fact:
+        download_url: "{{ item.browser_download_url }}"
+      when: item.name | regex_search('snapserver.*arm64_trixie.deb') is not none
+      loop: "{{ json_response.json.assets }}"
 
-  - name: Enable raspotify repository
-    become: yes
-    apt_repository:
-      repo: deb [signed-by=/usr/share/keyrings/raspotify_key.asc] https://dtcooper.github.io/raspotify raspotify main
-      state: present
+    - name: Download snapserver
+      get_url:
+        url: "{{ download_url }}"
+        dest: /tmp/snapserver-latest.deb
 
-  - name: Install raspotify
-    become: yes
-    apt:
-      update_cache: yes
-      pkg:
-      - raspotify
+    - name: ensure snapserver is updated
+      become: yes
+      apt:
+        deb: /tmp/snapserver-latest.deb
 
-  - name: Disable raspotify
-    become: yes
-    service:
-      name: raspotify
-      state: stopped
-      enabled: false
+    - name: Ensure snapserver systemd drop-in directory exists
+      become: true
+      file:
+        path: /etc/systemd/system/snapserver.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
-  - name: Configure snapserver
-    become: yes
-    copy:
-      content: |
-        [stream]
-        source = spotify:///usr/bin/librespot?name=Spotify&devicename=RPi4s
-      dest: "/etc/snapserver.conf"
+    - name: Configure systemd to create /run/snapserver automatically
+      become: true
+      copy:
+        src: snapserver-runtime.conf
+        dest: /etc/systemd/system/snapserver.service.d/runtime.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart snapserver
 
-  - name: Restart snapserver
-    become: yes
-    service:
-      name: snapserver
-      state: restarted
-      enabled: yes
-      daemon_reload: yes
+    - name: Ensure /etc/pipewire/pipewire.conf.d directory exists
+      become: yes
+      file:
+        path: /etc/pipewire/pipewire.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy virtual PipeWire null sink for Spotify Soloist
+      become: true
+      copy:
+        src: 10-soloist-null-sink.conf
+        dest: /etc/pipewire/pipewire.conf.d/10-soloist-null-sink.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Get snapserver user UID
+      getent:
+        database: passwd
+        key: snapserver
+
+    - name: Set snapserver_uid fact
+      set_fact:
+        snapserver_uid: "{{ getent_passwd['snapserver'][1] }}"
+
+    - name: Enable systemd lingering for snapserver user so PipeWire runs headless
+      become: yes
+      command: loginctl enable-linger snapserver
+      args:
+        creates: /var/lib/systemd/linger/snapserver
+
+    - name: Deploy Soloist environment file
+      become: true
+      template:
+        src: soloist.default.j2
+        dest: /etc/default/soloist
+        owner: snapserver
+        group: snapserver
+        mode: '0600'
+      no_log: true
+      notify: Restart soloist
+
+    - name: Deploy Soloist systemd unit
+      become: true
+      template:
+        src: soloist.service.j2
+        dest: /etc/systemd/system/soloist.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart soloist
+
+    - name: Deploy Soloist PipeWire-to-FIFO bridge unit
+      become: true
+      template:
+        src: soloist-pipe.service.j2
+        dest: /etc/systemd/system/soloist-pipe.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart soloist-pipe
+
+    - name: Deploy snapserver configuration
+      become: true
+      template:
+        src: snapserver.conf.j2
+        dest: /etc/snapserver.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart snapserver
+
+    - name: Ensure server services are started and enabled
+      become: true
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: true
+        daemon_reload: true
+      loop:
+        - avahi-daemon
+        - snapserver
+        - soloist
+        - soloist-pipe
 
 - hosts: clients
+  vars:
+    snapclient_opts: "--player alsa"
+  handlers:
+    - name: Restart snapclient
+      become: yes
+      service:
+        name: snapclient
+        state: restarted
+        daemon_reload: true
+
   tasks:
-  - name: Get latest snapcast release
-    uri:
-      url: https://api.github.com/repos/badaix/snapcast/releases/latest
-      return_content: true
-    register: json_response
+    - name: Ensure PipeWire is removed on pure-ALSA client nodes
+      become: true
+      apt:
+        state: absent
+        purge: true
+        autoremove: true
+        name:
+          - pipewire
+          - pipewire-pulse
+          - pipewire-alsa
+          - wireplumber
 
-  - name: Find the link to download client package
-    set_fact:
-      download_url: "{{ item.browser_download_url }}"
-    when: item.name | regex_search('snapclient.*arm64_bookworm.deb')
-    loop: "{{ json_response.json.assets }}"
+    - name: Install ALSA utilities and snapclient
+      become: true
+      apt:
+        update_cache: yes
+        pkg:
+          - alsa-utils
 
-  - name: Download snapclient
-    get_url:
-      url: "{{ download_url }}"
-      dest: /tmp/snapclient-latest.deb
+    - name: Get latest snapcast release
+      uri:
+        url: https://api.github.com/repos/badaix/snapcast/releases/latest
+        return_content: true
+      register: json_response
 
-  - name: ensure snapclient is updated
-    become: yes
-    apt:
-      deb: /tmp/snapclient-latest.deb
+    - name: Find the link to download client package
+      set_fact:
+        download_url: "{{ item.browser_download_url }}"
+      when: item.name | regex_search('snapclient.*arm64_trixie.deb') is not none
+      loop: "{{ json_response.json.assets }}"
 
-  - name: ensure the snapclient user is in pulse-access group
-    become: yes
-    user:
-      name: snapclient
-      groups: pulse-access
-      append: yes
+    - name: Download snapclient
+      get_url:
+        url: "{{ download_url }}"
+        dest: /tmp/snapclient-latest.deb
 
-  - name: Enable system-wide pulse daemon
-    become: yes
-    copy:
-      src: pulseaudio.service
-      dest: "/etc/systemd/system/pulseaudio.service"
+    - name: ensure snapclient is updated
+      become: true
+      apt:
+        deb: /tmp/snapclient-latest.deb
 
-  - name: Disable per-user pulse daemon and socket
-    become: yes
-    service:
-      name: pulseaudio
-      state: stopped
-      enabled: no
-      arguments: --global
+    - name: Disable systemd lingering for snapclient user if enabled
+      become: true
+      command: loginctl disable-linger snapclient
+      args:
+        removes: /var/lib/systemd/linger/snapclient
 
-  - name: Start system-wide pulse daemon
-    become: yes
-    service:
-      name: pulseaudio
-      state: restarted
-      enabled: yes
-      daemon_reload: yes
+    - name: Ensure snapclient user is in the audio group
+      become: true
+      user:
+        name: snapclient
+        groups: audio
+        append: yes
 
-  - name: Restart snapclient
-    become: yes
-    service:
-      name: snapclient
-      state: restarted
-      enabled: yes
+    - name: Configure snapclient to output directly to ALSA
+      become: true
+      template:
+        src: snapclient.default.j2
+        dest: /etc/default/snapclient
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart snapclient
+
+    - name: Restart snapclient
+      become: true
+      service:
+        name: snapclient
+        state: restarted
+        enabled: true
+        daemon_reload: true

@@ -1,0 +1,19 @@
+[Unit]
+Description=Spotify Soloist Connect Daemon
+After=network-online.target user@{{ snapserver_uid }}.service
+Wants=network-online.target user@{{ snapserver_uid }}.service
+
+[Service]
+Type=simple
+User=snapserver
+Group=snapserver
+EnvironmentFile=/etc/default/soloist
+Environment="XDG_RUNTIME_DIR=/run/user/{{ snapserver_uid }}"
+StateDirectory=soloist
+CacheDirectory=soloist
+ExecStart=/usr/local/bin/soloist --device-name "{{ soloist_device_name }}" --api-key "${SOLOIST_API_KEY}" --pipewire-device soloist_sink
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

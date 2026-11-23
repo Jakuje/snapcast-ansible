@@ -1,0 +1,13 @@
+[http]
+enabled = true
+bind_to_address = 0.0.0.0
+doc_root = /usr/share/snapserver/snapweb
+
+[tcp-control]
+enabled = true
+bind_to_address = 0.0.0.0
+port = 1705
+
+[stream]
+source = pipe:///run/snapserver/spotify_fifo?name=Spotify&mode=create
+buffer = {{ snapserver_buffer }}
